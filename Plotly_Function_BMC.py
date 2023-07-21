@@ -10,8 +10,7 @@ from plotly.subplots import make_subplots
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Function definition
-def plot_on_off(fig, df, column, legend, rgb, visibility="legendonly", second_y=True,  axis_y="y2", r=1, c=1):
-
+def plot_on_off(fig, df, column, legend, rgb, visibility="legendonly", second_y=True, axis_y="y2", r=1, c=1):
     fig.add_trace(go.Scatter(x=df.index, y=df[column],
                              fill='tozeroy', mode="lines",
                              fillcolor=rgb,
@@ -37,7 +36,7 @@ def plot_html_bmc_tanques(df, title):
         fig = objeto figura para dibujarlo externamente de la función
     """
     # Create figure with secondary y-axis
-    fig = make_subplots(rows=2, cols=1,  specs=[[{"secondary_y": True}], [{"secondary_y": True}]],
+    fig = make_subplots(rows=2, cols=1, specs=[[{"secondary_y": True}], [{"secondary_y": True}]],
                         shared_xaxes=True, vertical_spacing=0.05)
     # Estado
     fig.add_trace(go.Scatter(x=df.index, y=df["Estado_Tanques"],
@@ -97,16 +96,16 @@ def plot_html_bmc_tanques(df, title):
     fig.update_layout(modebar_add=["v1hovermode", "toggleSpikeLines"])
     # Set x-axis and y-axis title
     fig.update_layout(legend_title_text='Variables BMC Tanques')
-    
+
     # Setting the x,y-axis of the title and range
     fig['layout']['yaxis']['title'] = 'Presión [Bar]'
     # fig['layout']['yaxis']['range'] = [0, 10]
     fig['layout']['xaxis']['title'] = 'Fecha'
-    
+
     # Setting the y2-axis of the title and range
     fig['layout']['yaxis2']['title'] = 'Temperatura [°C]'
     fig['layout']['yaxis2']['range'] = [0, 80]
-    
+
     fig.update_xaxes(showline=True, linewidth=1, linecolor='black')
     fig.update_yaxes(showline=True, linewidth=1, linecolor='black')
 
@@ -189,7 +188,7 @@ def plot_html_bmc_tapas(df, title):
 
     # Set x-axis and y-axis title
     fig.update_layout(legend_title_text='Variables BMC Tapas')
-    
+
     # Setting the x,y-axis of the title and range
     fig['layout']['yaxis']['title'] = 'Estado'
     fig['layout']['yaxis']['range'] = [0, 1]
@@ -221,7 +220,7 @@ def plot_html_pres_linea(df, title):
     """
     # Create figure with secondary y-axis
     fig = make_subplots(rows=1, cols=1, shared_xaxes=True, vertical_spacing=0.02)
-    
+
     # Presión de Linea en PSI
     fig.add_trace(go.Scatter(x=df.index, y=df["PresLinea"],
                              line=dict(color='gray', width=1),
@@ -243,7 +242,7 @@ def plot_html_pres_linea(df, title):
 
     # Set x-axis and y-axis title
     fig.update_layout(legend_title_text='Variables BMC Tapas')
-    
+
     # Setting the x,y-axis of the title and range
     fig['layout']['yaxis']['title'] = 'Presión [PSI]'
     fig['layout']['yaxis']['range'] = [0, 120]
@@ -353,7 +352,7 @@ def plot_tiempo_muerto(df, title_plot):
     """
 
     fig = go.Figure()
-    
+
     # Tiempo espera
     fig.add_trace(go.Scatter(x=df["Hora"], y=df["Tiempo_Espera [m]"],
                              line=dict(width=2, shape='hv'),
@@ -397,7 +396,7 @@ def plot_bar_acum_tiempo_muerto(df_raw, title_plot):
                          y=df['Tiempo_Espera [m]'],
                          name="Total tiempo espera"))
 
-    fig.update_layout(barmode='group', xaxis_tickangle=0) #  bargap=0.3, bargroupgap=0.02
+    fig.update_layout(barmode='group', xaxis_tickangle=0)  # bargap=0.3, bargroupgap=0.02
     fig.update_xaxes(dtick="M1", tickformat="%b\n%Y")
 
     # Add figure title
@@ -410,5 +409,49 @@ def plot_bar_acum_tiempo_muerto(df_raw, title_plot):
 
     fig.update_xaxes(showline=True, linewidth=0.5, linecolor='black')
     fig.update_yaxes(showline=True, linewidth=0.5, linecolor='black')
+
+    return fig
+
+
+@st.cache(persist=False, allow_output_mutation=True, suppress_st_warning=True, show_spinner=True, ttl=24 * 3600)
+def bar_hor_eoo(df):
+    """
+        Funcion para graficar barrras horizontales de las disponibilidades
+    """
+
+    labels = ['Disponibilidad_Intrinsica', 'Disponibilidad_alcanzada', 'Disponibilidad_Operativa_Generalizada',
+              'OEE']
+    values = df[['Disponibilidad_Intrinsica [%]', 'Disponibilidad_alcanzada [%]',
+                 'Disponibilidad_Operativa_Generalizada [%]', 'OEE [%]']].iloc[0]
+
+    # Crear la figura de la gráfica de barras horizontales
+    fig = go.Figure()
+    # Agregar los datos de las barras horizontales
+    fig.add_trace(go.Bar(
+        y=labels,  # Nombres de las categorías en el eje Y
+        x=values,  # Valores en el eje X
+        orientation='h'  # Configurar las barras horizontales
+    ))
+
+    # Configurar el rango del eje Y
+    fig.update_xaxes(range=[0, 100])
+
+    return fig
+
+
+@st.cache(persist=False, allow_output_mutation=True, suppress_st_warning=True, show_spinner=True, ttl=24 * 3600)
+def graf_torta_items(df):
+    """
+        Funcion para graficar una torta de los items
+    """
+
+    labels = ['Tiempo_Averias [M]', 'Mtto_programado [M]', 'Lavado_moldes [M]',
+              'Paro_procesos [M]', 'Maq_NoProgramada [M]', 'Servicios [M]']
+
+    values = df[['Tiempo_Averias', 'Mtto_programado', 'Lavado_moldes',
+                 'Paro_procesos', 'Maq_NoProgramada', 'Servicios']].iloc[0]
+
+    # pull is given as a fraction of the pie radius
+    fig = go.Figure(data=[go.Pie(labels=labels, values=values)])
 
     return fig

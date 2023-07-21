@@ -3,12 +3,11 @@
 # 30-MARZO-2023
 # ----------------------------------------------------------------------------------------------------------------------
 # Libraries
+import streamlit as st
+import pandas as pd
 import datetime
 
-import pandas as pd
-import numpy as np
-import streamlit as st
-
+# Internas
 from Plotly_Function_BMC import plot_html_bmc_tanques, plot_html_bmc_tapas, plot_html_pres_linea, plot_html_corrientes,\
     plot_tiempo_muerto, plot_bar_acum_tiempo_muerto
 from Sql_Function import get_data_day, get_data_range, to_excel
@@ -20,20 +19,16 @@ st.set_page_config(page_title='IIOT-BMC_RA',
                    initial_sidebar_state='collapsed',
                    page_icon='./assets/logo_corona.png',
                    layout='wide')
-
-
 # ----------------------------------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
 # Initial config
 st.title('📈 IIOT|Corona: BMC Ramos Arizpe México')
 st.markdown("""---""")
 
-# st.divider()
 st.header('1) Selección de BMC a visualizar')
 seleccionBMC = st.radio('¿Qué Banco de colage desea visualizar?',
                         ['BMC Tanques', 'BMC Tapas', 'Presión de linea', 'Corriente de elevadores'], 0)
 st.markdown("""---""")
-# st.divider()
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Fecha configuracion

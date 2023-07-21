@@ -12,11 +12,12 @@ from sqlalchemy.engine import URL
 # ----------------------------------------------------------------------------------------------------------------------
 # Variables definition
 # ----------------------------------------------------------------------------------------------------------------------
-load_dotenv('../.env')
+load_dotenv('..env')
 
 server = os.environ.get("SERVER")
 database = os.environ.get("DATABASE")
 table = os.environ.get("TABLE")
+disponibilidad = os.environ.get("TABLE2")
 username = os.environ.get("USER_SQL")
 password = os.environ.get("PASSWORD")
 
@@ -64,10 +65,10 @@ for table_name in inspector.get_table_names():
 #df.to_sql(table, conn, if_exists='append', index=False)
 
 # Read SQL
-# day = '2022-09-09'
-# pd_sql = pd.read_sql_query("SELECT * FROM " + database + ".dbo." + table + " WHERE fecha like '" + day + "'", conn)
+day = '2023-07-18'
+pd_sql = pd.read_sql_query("SELECT * FROM " + database + ".dbo.Disponibilidad" + " WHERE fecha like '" + day + "'", conn)
 # pd_sql = pd.read_sql_query("SELECT * FROM " + database + ".dbo." + table, conn)
 
 # pd_sql.to_csv('test.csv', index=False)
-# pd_sql.to_excel('Climati_salon3_CBC.xlsx', index=False)
+pd_sql.to_excel('Climati_salon3_CBC.xlsx', index=False)
 

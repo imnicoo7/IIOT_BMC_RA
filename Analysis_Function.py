@@ -35,23 +35,16 @@ def visual_tabla_dinam(df, key, flag_fecha=1):
         # df_aux['Fecha_planta'] = pd.to_datetime(df_aux['Fecha_planta'], format='%Y-%m-%d', exact=False)
         gb.configure_column("Fecha", type=["dateColumnFilter", "customDateTimeFormat"],
                             custom_format_string='yyyy-MM-dd', pivot=True)
+        height = 400
 
-    # elif flag_fecha == 0:
-    #     df_aux['Fecha_planta'] = pd.to_datetime(df_aux['Fecha'], format='%Y-%m-%d', exact=False)
-    #     gb.configure_column("Fecha_planta", type=["dateColumnFilter", "customDateTimeFormat"],
-    #                         custom_format_string='yyyy-MM-dd', pivot=True)
-    # elif flag_fecha == 2:
-    #     gb.configure_column("Fecha_AñoMes_planta", type=["dateColumnFilter", "customDateTimeFormat"],
-    #                         custom_format_string='yyyy-MM', pivot=True)
-    # elif flag_fecha == 3:
-    #     df_aux['Fecha'] = pd.to_datetime(df_aux['Fecha'], format='%Y-%m-%d', exact=False)
-    #     gb.configure_column("Fecha", type=["dateColumnFilter", "customDateTimeFormat"],
-    #                         custom_format_string='yyyy-MM-dd', pivot=True)
+    elif flag_fecha == 2:
+        height = 200
 
     gb.configure_grid_options(domLayout='normal')
     gridoptions = gb.build()
 
-    AgGrid(df_aux, editable=False, sortable=True, filter=True, resizable=True, height=400, width='50%', defaultWidth=3,
+    AgGrid(df_aux, editable=False, sortable=True, filter=True, resizable=True, height=height, width='50%',
+           defaultWidth=3,
            theme="blue",  # "light", "dark", "blue", "material" # defaultWidth=3, fit_columns_on_grid_load=False,
            key=key, reload_data=True, gridOptions=gridoptions,
            enable_enterprise_modules=False)
@@ -69,7 +62,7 @@ def round_mt(x):
     """
     Función para pasar de segundos a minutos y redondear
     """
-    return np.round(x/60, 0)
+    return np.round(x / 60, 0)
 
 
 def correcion_div_0(tiempo_variable):
@@ -89,7 +82,7 @@ def correcion_div_0(tiempo_variable):
 
 
 # @st.cache_data(experimental_allow_widgets=True, show_spinner=True)
-# @st.experimental_memo(suppress_st_warning=True, show_spinner=True)
+@st.experimental_memo(suppress_st_warning=True, show_spinner=True)
 def find_analisis(df, sel_bmc, text_dia, redownload=False):
     """
     Función que busca y carga el archivo de datos analizados o en su lugar analiza la data.
@@ -128,6 +121,23 @@ def find_analisis(df, sel_bmc, text_dia, redownload=False):
             analisis_df = pd.read_csv(directory + filename)
         else:
             analisis_df = analisis_ciclos_tapas(df=df, table=sel_bmc, periodo=text_dia)
+
+    # Calcular EOO Tanques
+    elif sel_bmc == 'BMC Tanques EGE':
+        if filename in filenames and redownload is False:
+            analisis_df = pd.read_csv(directory + filename)
+        else:
+            analisis_df, analisis_item = analis_eoo_tanques(df=df)
+
+        return analisis_df, analisis_item
+
+    # Calcular EOO Tanques
+    elif sel_bmc == 'BMC Tapas EGE':
+        if filename in filenames and redownload is False:
+            analisis_df = pd.read_csv(directory + filename)
+        else:
+            analisis_df, analisis_item = analis_eoo_tapas(df=df)
+        return analisis_df, analisis_item
 
     return analisis_df
 
@@ -169,8 +179,8 @@ def analisis_variable(df, idx_variable, variable, flag_var, tiempo_var, total_va
     return tiempo_var, total_var, max_var, flag_var, aux
 
 
-@st.cache_data(experimental_allow_widgets=True, show_spinner=True)
-# @st.experimental_memo(suppress_st_warning=True, show_spinner=True)
+# @st.cache_data(experimental_allow_widgets=True, show_spinner=True)
+@st.experimental_memo(suppress_st_warning=True, show_spinner=True)
 def analisis_ciclos_tanques(df, periodo, table):
     """
        Programa que analiza la serie de tiempo y crea un df a partir de cada ciclo analizado
@@ -350,8 +360,8 @@ def analisis_ciclos_tanques(df, periodo, table):
     return analisis_df
 
 
-@st.cache_data(experimental_allow_widgets=True, show_spinner=True)
-# @st.experimental_memo(suppress_st_warning=True, show_spinner=True)
+# @st.cache_data(experimental_allow_widgets=True, show_spinner=True)
+@st.experimental_memo(suppress_st_warning=True, show_spinner=True)
 def analisis_ciclos_tapas(df, periodo, table):
     """
        Programa que analiza la serie de tiempo y crea un df a partir de cada ciclo analizado
@@ -531,38 +541,235 @@ def analisis_ciclos_tapas(df, periodo, table):
     return analisis_df
 
 
-def visual_tabla_dinam_EOO(df, key):
+def obtener_item_real(df, columna):
     """
-    Función para generar las tablas dinamicas que se visualizan
-    INPUT:
-        df: data frame a visualizar
-        key: Llave distinta para el objeto de streamlit
-
+    Función para obtener la resta del día inicial y el día anterior del SQL que contendran
+    los datos de los contadores y van aumentando día a día
+    Si el día actual es menor que el anterior, es porque se reinicio
+    Sí el día actual es mayor porque sigue aumentando, realizar resta
     """
-    # Copy dataframe
-    df_aux = df.copy()
+    num_datos = len(df[columna])
+    if num_datos >= 2:
+        if df[columna].iloc[-1] >= df[columna].iloc[-2]:
+            ultima_fila = df[columna].iloc[-1]
+            penultima_fila = df[columna].iloc[-2]
+            resultado_resta = ultima_fila - penultima_fila
+            return resultado_resta
 
-    # Definiendo la tabla de visualización
-    gb = GridOptionsBuilder.from_dataframe(df_aux)
-    gb.configure_side_bar()
+        elif df[columna].iloc[-1] <= df[columna].iloc[-2]:
+            ultima_fila = ultima_fila = df[columna].iloc[-1]
+            return ultima_fila
 
-    gb.configure_grid_options(domLayout='normal')
-    gridoptions = gb.build()
-
-    AgGrid(df_aux, editable=False, sortable=True, filter=True, resizable=True, height=400, width='50%', defaultWidth=3,
-           theme="blue",  # "light", "dark", "blue", "material" # defaultWidth=3, fit_columns_on_grid_load=False,
-           key=key, reload_data=True, gridOptions=gridoptions,
-           enable_enterprise_modules=False)
-    return
-
-
-def analis_eoo_tanques(df, periodo, table):
-    df_new  = pd.dataframe(columns=[])
-    
-    return df_new
+    elif num_datos == 1:
+        ultima_fila = df[columna].iloc[-1]
+        return ultima_fila
+    else:
+        raise ValueError("No se puede visualizar el día actual, porque no contiene información.")
 
 
-def analis_eoo_tapas(df, periodo, table):
-    df_new  = pd.dataframe(columns=[])
-    
-    return df_new
+def obtener_minutos(valor):
+    """
+        Función para pasar horas a minutos
+    """
+    return valor * 60
+
+
+def analis_eoo_tanques(df):
+    """
+        Función para realizar operaciones del EOO y de los 6 items definidos en Tanques
+        Retorno 2 tablas con el EOO y los 6 items
+    """
+
+    # Restar los datos del SQL con los datos del día inicial - el anterior
+    Averias_Tanques = obtener_item_real(df, "Averias_Tanques")
+    Mtto_programado_Tanques = obtener_item_real(df, "Mtto_programado_Tanques")
+    Lavado_moldes_Tanques = obtener_item_real(df, "Lavado_moldes_Tanques")
+    Paro_proceso_Tanques = obtener_item_real(df, "Paro_proceso_Tanques")
+    Maq_NoProgramada_Tanques = obtener_item_real(df, "Maq_NoProgramada_Tanques")
+    Servicios_Tanques = obtener_item_real(df, "Servicios_Tanques")
+
+    # Paso de hora a minutos de todos los datos del df en la columna horas_programadas_tanques
+    df['horas_programadas_tanques'] = df['horas_programadas_tanques'].apply(obtener_minutos)
+    # Sumo todos los datos del df si son varios días
+    minutos_programados = df['horas_programadas_tanques'].sum()
+    moldes_tanques = df['moldes_tanques'].sum()
+    cavidades_tanques = df['cavidades_tanques'].sum()
+    ciclo_ideal_tanques = df['ciclo_ideal_tanques'].sum()
+    calidad_tanques = df['calidad_tanques'].sum() / df.shape[0]
+    piezas_fabricadas_tanques = df['piezas_fabricadas_tanques'].sum()
+
+    # ----------------------------------------------------------------------------------------------------
+    # Operaciones de disponibilidad + OEE
+    disponibilidad_intrinsica = ((minutos_programados - Averias_Tanques) / minutos_programados) * 100
+    disponibilidad_alzanzada = ((minutos_programados - Averias_Tanques - Mtto_programado_Tanques) /
+                                minutos_programados) * 100
+
+    d_operativa_generalizada = ((minutos_programados - Averias_Tanques - Mtto_programado_Tanques -
+                                 Lavado_moldes_Tanques - Paro_proceso_Tanques - Maq_NoProgramada_Tanques
+                                 - Servicios_Tanques) / minutos_programados) * 100
+
+    piezas_a_realizar = ((d_operativa_generalizada / 100) * minutos_programados / ciclo_ideal_tanques) \
+                        * moldes_tanques + cavidades_tanques
+    piezas_a_realizar = piezas_a_realizar.sum()
+
+    rendimiento = (piezas_fabricadas_tanques / piezas_a_realizar) * 100
+
+    oee = (d_operativa_generalizada / 100) * (rendimiento / 100) * calidad_tanques * 100
+
+    # ----------------------------------------------------------------------------------------------------
+    # Operaciones para cada item y cuantas se dejan de hacer por item
+    averias = Averias_Tanques / minutos_programados
+    dejan_averias = Averias_Tanques / (ciclo_ideal_tanques * moldes_tanques * cavidades_tanques)
+
+    mtt_prog = Mtto_programado_Tanques / minutos_programados
+    dejan_mtt_prog = Mtto_programado_Tanques / (ciclo_ideal_tanques * moldes_tanques * cavidades_tanques)
+
+    lvd_moldes = Lavado_moldes_Tanques / minutos_programados
+    dejan_lvd_moldes = Lavado_moldes_Tanques / (ciclo_ideal_tanques * moldes_tanques * cavidades_tanques)
+
+    paro_proceso = Paro_proceso_Tanques / minutos_programados
+    dejan_paro_proceso = Paro_proceso_Tanques / (ciclo_ideal_tanques * moldes_tanques * cavidades_tanques)
+
+    maq_no_prog = Maq_NoProgramada_Tanques / minutos_programados
+    dejan_maq_no_prog = Maq_NoProgramada_Tanques / (ciclo_ideal_tanques * moldes_tanques * cavidades_tanques)
+
+    servicios = Servicios_Tanques / minutos_programados
+    dejan_servicios = Servicios_Tanques / (ciclo_ideal_tanques * moldes_tanques * cavidades_tanques)
+
+    # ----------------------------------------------------------------------------------------------------
+    # Tabla para df Disponibilidad
+    df_disponibilidad = {"Fecha": df.fecha,
+                         'Disponibilidad_Intrinsica [%]': round(disponibilidad_intrinsica, 2),
+                         "Disponibilidad_alcanzada [%]": round(disponibilidad_alzanzada, 2),
+                         "Disponibilidad_Operativa_Generalizada [%]": round(d_operativa_generalizada, 2),
+                         "Piezas_Posibles_Fabricar ": round(piezas_a_realizar, 0),
+                         "rendimiento [%]": round(rendimiento, 2),
+                         "OEE [%]": round(oee, 2)
+                         }
+    # ----------------------------------------------------------------------------------------------------
+    # Tabla para los 6 items
+    df_items = {'Fecha': df['fecha'],
+                'Tiempo_Averias': round(averias * 100, 1),
+                "dejan_de_hacer_averias": round(dejan_averias * 100, 1),
+
+                'Mtto_programado': round(mtt_prog * 100, 1),
+                "dejan_de_hacer_mtto": round(dejan_mtt_prog * 100, 1),
+
+                'Lavado_moldes': round(lvd_moldes * 100, 1),
+                "dejan_de_hacer_lvd": round(dejan_lvd_moldes * 100, 1),
+
+                'Paro_procesos': round(paro_proceso * 100, 1),
+                "dejan_de_hacer_proceso": round(dejan_paro_proceso * 100, 1),
+
+                'Maq_NoProgramada': round(maq_no_prog * 100, 1),
+                "dejan_de_hacer_maq": round(dejan_maq_no_prog * 100, 1),
+
+                'Servicios': round(servicios * 100, 1),
+                "dejan_de_hacer_servicios": round(dejan_servicios * 100, 1),
+                }
+    # ----------------------------------------------------------------------------------------------------
+    # Guardo los arreglos en un DataFrame
+    df_disponibilidad = pd.DataFrame(df_disponibilidad)
+    df_items = pd.DataFrame(df_items)
+
+    return df_disponibilidad, df_items
+
+
+def analis_eoo_tapas(df):
+    """
+        Función para realizar operaciones del EOO y de los 6 items definidos en Tapas
+        Retorno 2 tablas con el EOO y los 6 items
+    """
+    # Restar los datos del SQL con los datos del día inicial - el anterior
+    Averias_Tapas = obtener_item_real(df, "Averias_Tapas")
+    Mtto_programado_Tapas = obtener_item_real(df, "Mtto_programado_Tapas")
+    Lavado_moldes_Tapas = obtener_item_real(df, "Lavado_moldes_Tapas")
+    Paro_proceso_Tapas = obtener_item_real(df, "Paro_proceso_Tapas")
+    Maq_NoProgramada_Tapas = obtener_item_real(df, "Maq_NoProgramada_Tapas")
+    Servicios_Tapas = obtener_item_real(df, "Servicios_Tapas")
+
+    # Paso de hora a minutos de todos los datos del df en la columna horas_programadas_tapas
+    df['horas_programadas_tapas'] = df['horas_programadas_tapas'].apply(obtener_minutos)
+    # Obtengo los datos del Excel y los sumo todos por la cantidad de datos del df
+    minutos_programados = df['horas_programadas_tapas'].sum()
+    moldes_tanques = df['moldes_tapas'].sum()
+    cavidades_tanques = df['cavidades_tapas'].sum()
+    ciclo_ideal_tanques = df['ciclo_ideal_tapas'].sum()
+    calidad_tanques = df['calidad_tapas'].sum() / df.shape[0]
+    piezas_fabricadas_tanques = df['piezas_fabricadas_tapas'].sum()
+
+    # ----------------------------------------------------------------------------------------------------
+    # Operaciones de disponibilidad + OEE
+    disponibilidad_intrinsica = ((minutos_programados - Averias_Tapas) / minutos_programados) * 100
+
+    disponibilidad_alzanzada = ((minutos_programados - Averias_Tapas - Mtto_programado_Tapas) /
+                                minutos_programados) * 100
+
+    d_operativa_generalizada = ((minutos_programados - Averias_Tapas - Mtto_programado_Tapas -
+                                 Lavado_moldes_Tapas - Paro_proceso_Tapas - Maq_NoProgramada_Tapas
+                                 - Servicios_Tapas) / minutos_programados) * 100
+
+    piezas_a_realizar = ((d_operativa_generalizada / 100) * minutos_programados / ciclo_ideal_tanques) \
+                        * moldes_tanques + cavidades_tanques
+
+    rendimiento = (piezas_fabricadas_tanques / piezas_a_realizar) * 100
+
+    oee = (d_operativa_generalizada / 100) * (rendimiento / 100) * calidad_tanques * 100
+    # ----------------------------------------------------------------------------------------------------
+    # Operaciones para cada item y cuantas se dejan de hacer por item
+    averias = Averias_Tapas / minutos_programados
+    dejan_averias = Averias_Tapas / (ciclo_ideal_tanques * moldes_tanques * cavidades_tanques)
+
+    mtt_prog = Mtto_programado_Tapas / minutos_programados
+    dejan_mtt_prog = Mtto_programado_Tapas / (ciclo_ideal_tanques * moldes_tanques * cavidades_tanques)
+
+    lvd_moldes = Lavado_moldes_Tapas / minutos_programados
+    dejan_lvd_moldes = Lavado_moldes_Tapas / (ciclo_ideal_tanques * moldes_tanques * cavidades_tanques)
+
+    paro_proceso = Paro_proceso_Tapas / minutos_programados
+    dejan_paro_proceso = Paro_proceso_Tapas / (ciclo_ideal_tanques * moldes_tanques * cavidades_tanques)
+
+    maq_no_prog = Maq_NoProgramada_Tapas / minutos_programados
+    dejan_maq_no_prog = Maq_NoProgramada_Tapas / (ciclo_ideal_tanques * moldes_tanques * cavidades_tanques)
+
+    servicios = Servicios_Tapas / minutos_programados
+    dejan_servicios = Servicios_Tapas / (ciclo_ideal_tanques * moldes_tanques * cavidades_tanques)
+
+    # ----------------------------------------------------------------------------------------------------
+    # Tabla para df Disponibilidad
+    df_disponibilidad = {"Fecha": df['fecha'],
+                         'Disponibilidad_Intrinsica [%]': round(disponibilidad_intrinsica, 2),
+                         "Disponibilidad_alcanzada [%]": round(disponibilidad_alzanzada, 2),
+                         "Disponibilidad_Operativa_Generalizada [%]": round(d_operativa_generalizada, 2),
+                         "Piezas_Posibles_Fabricar [%]": round(piezas_a_realizar, 0),
+                         "rendimiento [%]": round(rendimiento, 2),
+                         "OEE [%]": round(oee, 2)
+                         }
+    # ----------------------------------------------------------------------------------------------------
+    # Tabla para los 6 items
+    df_items = {"Fecha": df['fecha'],
+                'Tiempo_Averias': round(averias * 100, 1),
+                "dejan_de_hacer_averias": round(dejan_averias * 100, 1),
+
+                'Mtto_programado': round(mtt_prog * 100, 1),
+                "dejan_de_hacer_mtto": round(dejan_mtt_prog * 100, 1),
+
+                'Lavado_moldes': round(lvd_moldes * 100, 1),
+                "dejan_de_hacer_lvd": round(dejan_lvd_moldes * 100, 1),
+
+                'Paro_procesos': round(paro_proceso * 100, 1),
+                "dejan_de_hacer_paro_proceso": round(dejan_paro_proceso * 100, 1),
+
+                'Maq_NoProgramada': round(maq_no_prog * 100, 1),
+                "dejan_de_hacer_maq": round(dejan_maq_no_prog * 100, 1),
+
+                'Servicios': round(servicios * 100, 1),
+                "dejan_de_hacer_servicios": round(dejan_servicios * 100, 1),
+
+                }
+    # ----------------------------------------------------------------------------------------------------
+    # Guardo los arreglos en un DataFrame
+    df_disponibilidad = pd.DataFrame(df_disponibilidad)
+    df_items = pd.DataFrame(df_items)
+
+    return df_disponibilidad, df_items

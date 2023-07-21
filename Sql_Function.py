@@ -1,4 +1,3 @@
-
 # Aplicación de BMC para RA con Python Streamlit
 # SQL function for Ramos Arizpe en México
 # 30-MARZO-2023
@@ -18,8 +17,8 @@ from sqlalchemy.engine import URL
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Function definition
-@st.cache_data(experimental_allow_widgets=True, show_spinner=True)
-# @st.experimental_memo(suppress_st_warning=True, show_spinner=True)
+# @st.cache_data(experimental_allow_widgets=True, show_spinner=True)
+@st.experimental_memo(suppress_st_warning=True, show_spinner=True)
 def get_data_day(sel_dia="2023-01-01", sql_table="BMC_RA", flag_download=False):
     """
     Programa que permite conectar con una base de dato del servidor y devuelve la base de dato
@@ -34,16 +33,24 @@ def get_data_day(sel_dia="2023-01-01", sql_table="BMC_RA", flag_download=False):
         salud_datos = Número | Salud total de los datos
         title = Título para la gráfica
     """
+    datos_dias = 24 * 60 * 60
+    # 24 horas en un día x 60 minutos en cada hora x 60 veces que tomo el dato cada minuto
 
     # Conexion a la base de datos
     if sql_table in ['BMC Tanques', 'BMC Tapas', 'Presión de linea', 'Corriente de elevadores']:
         df = find_load(tipo='day', day=str(sel_dia), ini=None, database='BMCRA', table='BMCRA',
                        redownload=flag_download)
+        # Organización del df
+        df = organize_df(df)
 
-    # Organización del df
-    df = organize_df(df)
-    datos_dias = 24 * 60 * 60
-    # 24 horas en un día x 60 minutos en cada hora x 60 veces que tomo el dato cada minuto
+    # Accedo cuando se use solo el EGE
+    elif sql_table in ['BMC Tanques EGE', 'BMC Tapas EGE']:
+        df = find_load(tipo='day', day=str(sel_dia), ini=None, database='BMCRA', table='Disponibilidad',
+                       redownload=flag_download)
+        # Organización del df
+        df['fecha'] = pd.to_datetime(df['fecha']).dt.date
+        # Retorno solo un argumento para el EGE
+        return df
 
     # Defining the title and filename for saving the plots
     title = f"Gráfica de BMC el {sel_dia}"
@@ -55,8 +62,8 @@ def get_data_day(sel_dia="2023-01-01", sql_table="BMC_RA", flag_download=False):
     return df, salud_list, salud_datos, title
 
 
-@st.cache_data(experimental_allow_widgets=True, show_spinner=True)
-# @st.experimental_memo(suppress_st_warning=True, show_spinner=True)
+# @st.cache_data(experimental_allow_widgets=True, show_spinner=True)
+@st.experimental_memo(suppress_st_warning=True, show_spinner=True)
 def get_data_range(sel_dia_ini="2022-01-01", sel_dia_fin="2022-01-02", sql_table="BMC Tanques", flag_download=False):
     """
     Programa que permite conectar con una base de dato del servidor y devuelve la base de dato como un pandas dataframe
@@ -80,6 +87,15 @@ def get_data_range(sel_dia_ini="2022-01-01", sel_dia_fin="2022-01-02", sql_table
     if sql_table in ['BMC Tanques', 'BMC Tapas', 'Presión de linea', 'Corriente de elevadores']:
         df = find_load(tipo="rango_planta", ini=str(sel_dia_ini), day=str(sel_dia_fin),
                        database="BMCRA", table="BMCRA", redownload=flag_download)
+
+    # Accedo cuando se use solo el EGE
+    elif sql_table in ['BMC Tanques EGE', 'BMC Tapas EGE']:
+        df = find_load(tipo='rango_planta', ini=str(sel_dia_ini), day=str(sel_dia_fin), database='BMCRA',
+                       table='Disponibilidad', redownload=flag_download)
+        # Organización del df
+        df['fecha'] = pd.to_datetime(df['fecha']).dt.date
+        # Retorno solo un argumento para el EGE
+        return df
 
     # Defining the title and filename for saving the plots
     title = "Gráfica de BMC entre " + str(sel_dia_ini) + " y " + str(sel_dia_fin)
@@ -276,7 +292,6 @@ def add_day(day, add=1):
     return str(ini_date), str(fin_date)
 
 
-# Funcion para descargar un archivo excel
 def to_excel(df):
     # Crear objeto BytesIO vacío
     output = BytesIO()
@@ -298,11 +313,11 @@ def excel_search_by_date(date, excel_file):
     """
     Busca una fecha específica en un archivo de Excel y devuelve los datos como un pandas DataFrame.
 
-    Args:
+    Parametros::
         date (str): Fecha a buscar en formato "YYYY-MM-DD".
         excel_file (str): Ruta del archivo de Excel.
 
-    Returns:
+    Devuelve :
         pd_excel (pd.DataFrame): Datos encontrados para la fecha especificada.
     """
     df_excel = pd.read_excel(excel_file)  # Lee el archivo de Excel
@@ -313,43 +328,24 @@ def excel_search_by_date(date, excel_file):
     return pd_excel
 
 
-@st.cache_data(experimental_allow_widgets=True, show_spinner=True)
-# @st.experimental_memo(suppress_st_warning=True, show_spinner=True)
-def obtener_data(sel_dia="2023-01-01", sql_table="BMC_RA", flag_download=False):
+def excel_search_by_date_range(start_date, end_date, excel_file):
     """
-    Programa que permite conectar con una base de dato del servidor y devuelve la base de dato
-    como un pandas dataframe
-    INPUT:
-        sel_dia = Día inicial EN STR
-        sql_table = Selección de la tabla SQL de climatización a la que se conectara
-        redownload = Debe descargarse la data o buscar dentro de los archivos previamente descargados.
-    OUTPUT:
-        df = pandas dataframe traído de la base de dato SQL
-        salud_list = lista con el dato de salud por día
-        salud_datos = Número | Salud total de los datos
-        title = Título para la gráfica
+    Busca un rango de fechas en un archivo de Excel y devuelve los datos como un pandas DataFrame.
+
+    Parametros:
+        start_date (str): Fecha de inicio del rango a buscar en formato "YYYY-MM-DD".
+        end_date (str): Fecha final del rango a buscar en formato "YYYY-MM-DD".
+        excel_file (str): Ruta del archivo de Excel.
+
+    Devuelve:
+        pd_excel (pd.DataFrame): Datos encontrados para el rango de fechas especificado.
     """
+    
+    df_excel = pd.read_excel(excel_file)  # Lee el archivo de Excel
+    df_excel['fecha'] = df_excel['fecha'].apply(lambda x: x.date())
+    start_date = pd.to_datetime(start_date)
+    end_date = pd.to_datetime(end_date)
+    
+    pd_excel = df_excel[(df_excel['fecha'] >= start_date) & (df_excel['fecha'] <= end_date)]
 
-    # Conexion a la base de datos
-    if sql_table in ['BMC Tanques EGE', 'BMC Tapas EGE']:
-        df = find_load(tipo='day', day=str(sel_dia), ini=None, database='BMCRA', table='Disponibilidad',
-                       redownload=flag_download)
-
-    # Organización del df
-    # df = organize_df(df)
-    # df["fecha"] = datetime.strptime(df["fecha"], "%Y-%m-%d").date()
-    df['fecha'] = pd.to_datetime(df['fecha']).dt.date
-    # df['fecha'] = df['fecha'].apply(lambda x: x.date())
-    # df["fecha"] = df.fecha.date()
-    datos_dias = 24 * 60 * 1
-    # 24 horas en un día x 60 minutos en cada hora x 60 veces que tomo el dato cada minuto
-
-    # Defining the title and filename for saving the plots
-    title = f"Gráfica de BMC el {sel_dia}"
-
-    # Salud de los datos
-    salud_datos = (df.shape[0] / datos_dias) * 100
-    salud_list = [np.round(salud_datos, 2)]
-
-    return df, salud_list, salud_datos, title
-    # return df
+    return pd_excel
